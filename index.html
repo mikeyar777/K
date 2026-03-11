@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Physical Gorilla Locomotion</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/gh/c-frame/aframe-physics-system@v4.2.2/dist/aframe-physics-system.min.js"></script>
+    
+    <script>
+      AFRAME.registerComponent('gorilla-phys', {
+        schema: {
+          hand: {type: 'string', default: 'left'}
+        },
+        tick: function () {
+          const rig = document.querySelector('#rig');
+          const camera = document.querySelector('#camera');
+          const hand = this.el.object3D;
+          
+          // 1. Get positions
+          const handPos = new THREE.Vector3();
+          hand.getWorldPosition(handPos);
+          
+          // 2. Check distance to floor (Y=0) or objects
+          // If hand height is less than 0.2 meters from the ground...
+          if (handPos.y < 0.2) {
+            
+            // Get camera direction for the push
+            const dir = new THREE.Vector3();
+            camera.object3D.getWorldDirection(dir);
+
+            if (rig.body) {
+              // LOCK SPINNING: Force angular velocity to zero every frame we touch ground
+              rig.body.angularVelocity.set(0, 0, 0);
+              rig.body.fixedRotation = true;
+
+              // APPLY VELOCITY: Only fling if we aren't already moving fast upwards
+              if (rig.body.velocity.y < 1) {
+                rig.body.velocity.set(-dir.x * 7, 5, -dir.z * 7);
+                
+                // Haptic feedback (vibrate controller on hit)
+                const gamepad = this.el.components['oculus-touch-controls']?.gamepad;
+                if (gamepad && gamepad.hapticActuators[0]) {
+                  gamepad.hapticActuators[0].pulse(0.6, 100);
+                }
+              }
+            }
+          }
+        }
+      });
+    </script>
+</head>
+<body style="margin: 0; background: #87CEEB;">
+
+    <a-scene physics="gravity: -9.8; debug: false">
+        
+        <a-entity light="type: ambient; intensity: 0.9"></a-entity>
+        <a-entity light="type: directional; intensity: 0.6" position="1 10 1"></a-entity>
+
+        <a-entity id="rig" position="0 2 0" dynamic-body="mass: 1; shape: sphere; sphereRadius: 0.4; fixedRotation: true">
+            <a-camera id="camera" wasd-controls="enabled: false" look-controls></a-camera>
+
+            <a-entity oculus-touch-controls="hand: left" gorilla-phys="hand: left"></a-entity>
+            <a-entity oculus-touch-controls="hand: right" gorilla-phys="hand: right"></a-entity>
+        </a-entity>
+
+        <a-plane static-body rotation="-90 0 0" width="500" height="500" color="#228B22"></a-plane>
+
+        <a-box static-body position="-5 1.5 -8" color="orange" width="3" height="3" depth="3"></a-box>
+        <a-box static-body position="5 1.5 -8" color="red" width="3" height="3" depth="3"></a-box>
+
+        <a-sky color="#87CEEB"></a-sky>
+
+    </a-scene>
+</body>
+</html>
